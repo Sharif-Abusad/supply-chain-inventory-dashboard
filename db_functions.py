@@ -1,69 +1,155 @@
 import mysql.connector
 import os
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
+
+# Load environment variables from the .env file
+load_dotenv()
 
 
 def connect_to_db():
+    """
+    Establish a connection to the MySQL database using environment variables.
+
+    Returns:
+        mysql.connector.connection.MySQLConnection: Active database connection.
+    """
+    # Retrieve database credentials securely from environment variables
     conn = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),  
-        user=os.getenv("DB_USER"),  
-        password=os.getenv("DB_PASSWORD"),  
-        database=os.getenv("DB_NAME")  
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME")
     )
+
     return conn
 
 
 def get_basic_info(cursor):
     """
-    Retrieve summary inventory and supply chain metrics.
+    Retrieve key inventory and supply chain metrics for the dashboard.
 
     Args:
-        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+        cursor: MySQL dictionary cursor used to execute SQL queries.
 
     Returns:
-        dict: Dictionary of metric labels and their values.
+        dict: Dictionary containing summary metrics and their values.
     """
 
+    # Define SQL queries for each dashboard summary metric
     queries = {
-        "Total Suppliers": "SELECT COUNT(*) AS count FROM suppliers",
+        # Count the total number of suppliers registered in the database
+        "Total Suppliers": """
+            SELECT COUNT(*) AS count FROM suppliers
+        """,
 
-        "Total Products": "SELECT COUNT(*) AS count FROM products",
+        # Count the total number of products available in the inventory
+        "Total Products": """
+            SELECT COUNT(*) AS count FROM products
+        """,
 
-        "Total Categories Dealing": "SELECT COUNT(DISTINCT category) AS count FROM products",
+        # Count the number of unique product categories
+        "Total Categories Dealing": """
+            SELECT COUNT(DISTINCT category) AS count FROM products
+        """,
 
+        # Calculate the total sales value over the last three months
+        # Multiply the sold quantity by the product price
         "Total Sale Value (Last 3 Months)": """
             SELECT ROUND(SUM(ABS(se.change_quantity) * p.price), 2) AS total_sale
             FROM stock_entries se
             JOIN products p ON se.product_id = p.product_id
             WHERE se.change_type = 'Sale'
               AND se.entry_date >= (
-                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) FROM stock_entries)
+                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
+                  FROM stock_entries
+              )
         """,
 
+        # Calculate the total restocking value over the last three months
+        # Multiply the restocked quantity by the product price
         "Total Restock Value (Last 3 Months)": """
             SELECT ROUND(SUM(se.change_quantity * p.price), 2) AS total_restock
             FROM stock_entries se
             JOIN products p ON se.product_id = p.product_id
             WHERE se.change_type = 'Restock'
               AND se.entry_date >= (
-                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) FROM stock_entries)
+                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
+                  FROM stock_entries
+              )
         """,
 
+        # Count products below their reorder level
+        # Exclude products that already have a pending reorder request
         "Below Reorder & No Pending Reorders": """
             SELECT COUNT(*) AS below_reorder
             FROM products p
             WHERE p.stock_quantity < p.reorder_level
               AND p.product_id NOT IN (
-                  SELECT DISTINCT product_id FROM reorders WHERE status = 'Pending')
+                  SELECT DISTINCT product_id
+                  FROM reorders
+                  WHERE status = 'Pending'
+              )
         """
     }
 
+    # Execute each query and store the resulting metric
     results = {}
+
     for label, query in queries.items():
         cursor.execute(query)
         row = cursor.fetchone()
-        # Since row is a dictionary, extract the single value by getting the first value in dict.values()
+
+        # Extract the metric value from the returned dictionary
         results[label] = list(row.values())[0]
 
     return results
+
+
+def get_additonal_tables(cursor):
+    """
+    Retrieve detailed datasets required for dashboard tables.
+
+    Args:
+        cursor: MySQL dictionary cursor used to execute SQL queries.
+
+    Returns:
+        dict: Dictionary containing supplier, inventory, and reorder data.
+    """
+
+    # Define queries for the detailed dashboard tables
+    queries = {
+        # Retrieve supplier contact information
+        "Suppliers Contact Details": """
+            SELECT supplier_name, contact_name, email, phone
+            FROM suppliers
+        """,
+
+        # Retrieve product inventory details along with supplier information
+        # Join products with suppliers to identify each product's supplier
+        "Products with Supplier and Stock": """
+            SELECT
+                p.product_name,
+                s.supplier_name,
+                p.stock_quantity,
+                p.reorder_level
+            FROM products p
+            JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ORDER BY p.product_name ASC
+        """,
+
+        # Identify products whose current stock is at or below the reorder threshold
+        "Products Needing Reorder": """
+            SELECT product_name, stock_quantity, reorder_level
+            FROM products
+            WHERE stock_quantity <= reorder_level
+        """
+    }
+
+    # Execute each query and store all returned rows
+    tables = {}
+
+    for label, query in queries.items():
+        cursor.execute(query)
+        tables[label] = cursor.fetchall()
+
+    return tables
