@@ -1,0 +1,59 @@
+use supply_chain;
+select * from products;
+select * from reorders;
+select * from shipments;
+select * from stock_entries;
+select * from suppliers;
+
+-- 1  Total Suppliers
+SELECT COUNT(*) AS total_suppliers FROM suppliers;
+
+-- 2  Total Products
+SELECT COUNT(*) AS total_products FROM products;
+
+-- 3  Total Categories Dealing
+SELECT COUNT(DISTINCT category) AS total_categories FROM products;
+
+-- 4  Total sales value made in last 3 months (quantity * price)
+SELECT 
+	ROUND(
+		SUM(
+			ABS(se.change_quantity) * p.price
+		), 
+	2
+) AS total_sales_value_in_last_3_months
+FROM stock_entries AS se
+JOIN products AS p
+	ON p.product_id = se.product_id
+WHERE se.change_type = "Sale"
+AND se.entry_date >= (
+	SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) 
+    FROM stock_entries
+);
+
+-- 5  Total restock value made in last 3 months (quantity * price)
+SELECT 
+	ROUND(
+		SUM(
+			ABS(se.change_quantity) * p.price
+		), 
+	2
+) AS total_restock_value_in_last_3_months
+FROM stock_entries AS se
+JOIN products AS p
+	ON p.product_id = se.product_id
+WHERE se.change_type = "Restock"
+AND se.entry_date >= (
+	SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) 
+    FROM stock_entries
+);
+
+-- 6 Below Reorder and No Pending Reorders
+SELECT COUNT(*) AS products_to_reorder
+FROM products as p
+WHERE p.stock_quantity < p.reorder_level
+AND product_id NOT IN (
+	SELECT DISTINCT product_id
+    FROM reorders
+    WHERE status = "Pending"
+);
