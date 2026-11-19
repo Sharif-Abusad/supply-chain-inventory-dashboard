@@ -1,6 +1,4 @@
-# 5 Real-World Data Analytics Projects
-
-## Python-Driven UI for Advanced SQL Database Operations
+# Python-Driven UI for Advanced SQL Database Operations
 
 This project is about building a powerful web-based application using Python (Streamlit) that lets users interact with a MySQL database—without needing to write any SQL code.
 
