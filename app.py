@@ -6,7 +6,9 @@ from db_functions import (
     get_additonal_tables,
     get_categories,
     get_suppliers,
-    add_new_manual_id
+    add_new_manual_id,
+    get_all_products,
+    get_product_history,
 )
 
 st.set_page_config(
@@ -50,6 +52,7 @@ if option == "Basic Information":
         st.dataframe(df)
         st.divider()
 
+# --------------------- OPERATIONAL TASKS PAGE ---------------------
 elif option == "Operational Tasks":
     st.header("Operational Tasks")
     selected_task = st.selectbox(
@@ -57,6 +60,7 @@ elif option == "Operational Tasks":
         ["Add New Product", "Product History", "Place Reorder", "Receive Reorder"]
     )
 
+# --------------------- ADD NEW PRODUCT PAGE ---------------------
     if selected_task == "Add New Product":
         st.header("Add New Product")
         categories = get_categories(cursor)
@@ -99,3 +103,27 @@ elif option == "Operational Tasks":
                         st.success(f"Product '{product_name}' added successfully!")
                     except Exception as e:
                         st.error(f"Error adding the Product: {e}")
+
+# --------------------- PRODUCT HISTORY PAGE ---------------------
+    elif selected_task == "Product History":
+        st.header("Product Inventory History")
+
+        # get product list from the database
+        products = get_all_products(cursor)
+        product_names = [p["product_name"] for p in products]
+        product_ids = [p["product_id"] for p in products]
+
+        selected_product_name = st.selectbox(
+            "Select a Product",
+            options=product_names
+        )
+
+        if selected_product_name:
+            selected_product_id = product_ids[product_names.index(selected_product_name)]
+            history_data = get_product_history(cursor, selected_product_id)
+
+            if history_data:
+                df_history = pd.DataFrame(history_data)
+                st.dataframe(df_history)
+            else:
+                st.info("No history available for the selected product.")
