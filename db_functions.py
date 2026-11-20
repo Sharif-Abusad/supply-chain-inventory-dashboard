@@ -179,7 +179,11 @@ def get_categories(cursor):
     Returns:
         list: List of distinct product categories.
     """
-    query = "SELECT DISTINCT category FROM products ORDER BY category ASC"
+    query = """
+        SELECT DISTINCT category 
+        FROM products 
+        ORDER BY category ASC
+    """
     cursor.execute(query)
     rows = cursor.fetchall()
     categories = [row['category'] for row in rows]
@@ -196,7 +200,13 @@ def get_suppliers(cursor):
     Returns:
         list: List of distinct supplier names.
     """
-    query = "SELECT supplier_id, supplier_name FROM suppliers ORDER BY supplier_name ASC"
+    query = """
+        SELECT 
+            supplier_id, 
+            supplier_name 
+        FROM suppliers 
+        ORDER BY supplier_name ASC
+    """
     cursor.execute(query)
     rows = cursor.fetchall()
     return rows
@@ -223,3 +233,45 @@ def add_new_manual_id(cursor, db, p_name, p_category, p_price, p_stock_quantity,
     params = (p_name, p_category, p_price, p_stock_quantity, p_reorder_level, p_supplier_id)
     cursor.execute(proc_call, params)
     db.commit()
+
+
+def get_all_products(cursor):
+    """
+    Retrieve all products from the products table.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+
+    Returns:
+        list: List of dictionaries containing product details.
+    """
+    query = """
+        SELECT 
+            product_id, 
+            product_name 
+        FROM products 
+        ORDER BY product_name ASC
+    """
+    cursor.execute(query)
+    return cursor.fetchall()
+
+
+def get_product_history(cursor, product_id):
+    """
+    Retrieve the product history for a specific product.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+        product_id (int): The ID of the product for which to retrieve history.
+
+    Returns:
+        list: List of dictionaries containing stock entry history for the specified product.
+    """
+    query = """
+        SELECT * 
+        FROM product_inventory_history 
+        WHERE product_id = %s 
+        ORDER BY record_date DESC
+    """
+    cursor.execute(query, (product_id,))
+    return cursor.fetchall()
