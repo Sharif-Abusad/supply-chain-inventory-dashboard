@@ -118,3 +118,37 @@ CALL AddNewProductManualID('Smart Watch', 'Electronics', 99.99, 100, 25, 5);
 SELECT * FROM products WHERE product_name = 'Smart Watch';
 SELECT * FROM shipments WHERE product_id = 201;
 SELECT * FROM stock_entries WHERE product_id = 201;
+
+-- 11  Product History [finding shipments, sales and purchases for a product]
+CREATE OR REPLACE VIEW product_inventory_history AS
+SELECT 
+    pih.product_id,
+    pih.record_type,
+    pih.record_date,
+    pih.record_quantity,
+    pih.change_type,
+    p.supplier_id    
+FROM
+(
+    SELECT
+        product_id,
+        "Shipment" AS record_type,
+        shipment_date AS record_date,
+        quantity_received AS record_quantity,
+        null AS change_type
+    FROM shipments
+    UNION ALL
+    SELECT 
+        product_id,
+        "Stock Entry" AS record_type,
+        entry_date AS record_date,
+        change_quantity AS record_quantity,
+        change_type
+    FROM stock_entries
+) AS pih
+JOIN products AS p
+    ON p.product_id = pih.product_id;
+
+SELECT * FROM product_inventory_history
+WHERE product_id = 201
+ORDER BY record_date DESC;
