@@ -55,27 +55,41 @@ def get_basic_info(cursor):
         # Calculate the total sales value over the last three months
         # Multiply the sold quantity by the product price
         "Total Sale Value (Last 3 Months)": """
-            SELECT ROUND(SUM(ABS(se.change_quantity) * p.price), 2) AS total_sale
-            FROM stock_entries se
-            JOIN products p ON se.product_id = p.product_id
+            SELECT 
+                ROUND(
+                    SUM(ABS(se.change_quantity) * p.price),
+                    2
+                ) AS total_sales_value_in_last_3_months
+            FROM stock_entries AS se
+            JOIN products AS p
+                ON p.product_id = se.product_id
             WHERE se.change_type = 'Sale'
-              AND se.entry_date >= (
-                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
-                  FROM stock_entries
-              )
+                AND se.entry_date < '2026-01-01'
+                AND se.entry_date >= (
+                    SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
+                    FROM stock_entries
+                    WHERE entry_date < '2026-01-01'
+                );
         """,
 
         # Calculate the total restocking value over the last three months
         # Multiply the restocked quantity by the product price
         "Total Restock Value (Last 3 Months)": """
-            SELECT ROUND(SUM(se.change_quantity * p.price), 2) AS total_restock
-            FROM stock_entries se
-            JOIN products p ON se.product_id = p.product_id
+            SELECT 
+                ROUND(
+                    SUM(ABS(se.change_quantity) * p.price),
+                    2
+                ) AS total_restock_value_in_last_3_months
+            FROM stock_entries AS se
+            JOIN products AS p
+                ON p.product_id = se.product_id
             WHERE se.change_type = 'Restock'
-              AND se.entry_date >= (
-                  SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
-                  FROM stock_entries
-              )
+                AND se.entry_date < '2026-01-01'
+                AND se.entry_date >= (
+                    SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH)
+                    FROM stock_entries
+                    WHERE entry_date < '2026-01-01'
+                );
         """,
 
         # Count products below their reorder level
@@ -153,3 +167,59 @@ def get_additonal_tables(cursor):
         tables[label] = cursor.fetchall()
 
     return tables
+
+
+def get_categories(cursor):
+    """
+    Retrieve distinct product categories from the products table.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+
+    Returns:
+        list: List of distinct product categories.
+    """
+    query = "SELECT DISTINCT category FROM products ORDER BY category ASC"
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    categories = [row['category'] for row in rows]
+    return categories
+
+
+def get_suppliers(cursor):
+    """
+    Retrieve distinct supplier names from the suppliers table.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+
+    Returns:
+        list: List of distinct supplier names.
+    """
+    query = "SELECT supplier_id, supplier_name FROM suppliers ORDER BY supplier_name ASC"
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    return rows
+
+
+def add_new_manual_id(cursor, db, p_name, p_category, p_price, p_stock_quantity, p_reorder_level, p_supplier_id):
+    """
+    Add a new product to the products table with a manually specified product_id.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+        db (mysql.connector.connection.MySQLConnection): Database connection object.
+        p_name (str): Name of the product.
+        p_category (str): Category of the product.
+        p_price (float): Price of the product.
+        p_stock_quantity (int): Stock quantity of the product.
+        p_reorder_level (int): Reorder level of the product.
+        p_supplier_id (int): Supplier ID associated with the product.
+
+    Returns:
+        None
+    """
+    proc_call = "call AddNewProductManualID(%s, %s, %s, %s, %s, %s)"
+    params = (p_name, p_category, p_price, p_stock_quantity, p_reorder_level, p_supplier_id)
+    cursor.execute(proc_call, params)
+    db.commit()
