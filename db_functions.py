@@ -275,3 +275,31 @@ def get_product_history(cursor, product_id):
     """
     cursor.execute(query, (product_id,))
     return cursor.fetchall()
+
+
+def place_reorder(cursor, db, product_id, reorder_quantity):
+    """
+    Place a reorder for a specific product.
+
+    Args:
+        cursor (mysql.connector.cursor.MySQLCursorDict): Cursor object with dictionary=True.
+        db (mysql.connector.connection.MySQLConnection): Database connection object.
+        product_id (int): The ID of the product to reorder.
+        reorder_quantity (int): The quantity to reorder.
+
+    Returns:
+        None
+    """
+    query = """
+        INSERT INTO reorders (reorder_id, product_id, reorder_quantity, status, reorder_date)
+        SELECT 
+            MAX(reorder_id)+1, 
+            %s, 
+            %s, 
+            'Ordered', 
+            CURDATE()
+        FROM reorders
+    """
+    params = (product_id, reorder_quantity)
+    cursor.execute(query, params)
+    db.commit()
