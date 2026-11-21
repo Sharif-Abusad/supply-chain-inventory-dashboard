@@ -152,3 +152,12 @@ JOIN products AS p
 SELECT * FROM product_inventory_history
 WHERE product_id = 201
 ORDER BY record_date DESC;
+
+-- 12  Place a reorder
+INSERT INTO reorders(reorder_id, product_id, reorder_quantity, reorder_date, status)
+SELECT MAX(reorder_id)+1, 101, 200, CURDATE(), 'ordered' FROM reorders;
+
+SELECT * 
+FROM reorders 
+WHERE product_id = 101 
+ORDER BY reorder_date DESC;
