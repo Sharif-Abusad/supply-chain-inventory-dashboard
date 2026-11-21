@@ -9,6 +9,7 @@ from db_functions import (
     add_new_manual_id,
     get_all_products,
     get_product_history,
+    place_reorder
 )
 
 st.set_page_config(
@@ -127,3 +128,30 @@ elif option == "Operational Tasks":
                 st.dataframe(df_history)
             else:
                 st.info("No history available for the selected product.")
+
+# --------------------- PLACE REORDER PAGE ---------------------
+    elif selected_task == "Place Reorder":
+        st.header("Place Reorder")
+
+        products = get_all_products(cursor)
+        product_names = [p["product_name"] for p in products]
+        product_ids = [p["product_id"] for p in products]
+
+        selected_product_name = st.selectbox(
+            "Select a Product to Reorder",
+            options=product_names
+        )
+        reorder_quantity = st.number_input("Reorder Quantity", min_value=1, step=1)
+
+        if st.button("Place Reorder"):
+            if not selected_product_name:
+                st.error("Please select a product to reorder.")
+            elif reorder_quantity <= 0:
+                st.error("Reorder quantity must be greater than zero.")
+            else:
+                selected_product_id = product_ids[product_names.index(selected_product_name)]
+                try:
+                    place_reorder(cursor, db, selected_product_id, reorder_quantity)
+                    st.success(f"Reorder placed for '{selected_product_name}' with quantity {reorder_quantity}.")
+                except Exception as e:
+                    st.error(f"Error placing reorder: {e}")
